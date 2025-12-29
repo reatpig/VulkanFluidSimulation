@@ -1,0 +1,85 @@
+#include "spatial_hash.h"
+
+#include "gfx/common.h"
+#include "gfx/descriptor.h"
+
+namespace vfs {
+
+namespace {
+struct PushConstants {
+    VkDeviceAddress positions;
+    u32 n_particles;
+};
+
+struct UniformData {
+    float cell_size;
+    VkDeviceAddress spatial_keys;
+};
+
+}  // namespace
+
+void SpatialHash::Init(const gfx::CoreCtx& ctx, u32 n, float cell_size) {
+    this->n = n;
+
+    spatial_keys = CreateDataBuffer<u32>(ctx, n);
+    spatial_indices = CreateDataBuffer<u32>(ctx, n);
+    spatial_offsets = CreateDataBuffer<u32>(ctx, n);
+
+    sort.Init(ctx);
+    offset.Init(ctx);
+
+    desc_info.push_back({
+        .type = gfx::DescriptorManager::DescType::Uniform,
+        .buffer = {.data_buffer = gfx::Buffer::Create(ctx, sizeof(UniformData),
+                                                      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)},
+    });
+
+    spatial_hash_desc.Init(ctx, desc_info);
+    auto uniforms = UniformData{
+        .cell_size = cell_size,
+        .spatial_keys = spatial_keys.device_addr,
+    };
+    spatial_hash_desc.SetUniformData(0, &uniforms);
+
+    spatial_hash_pipeline.Init(ctx,
+                               {.shader_path = "shaders/compiled/update_spatial_hash.slang.spv",
+                                .kernels = {"UpdateSpatialHash"},
+                                .push_const_size = sizeof(PushConstants),
+                                .set = spatial_hash_desc.Set(),
+                                .layout = spatial_hash_desc.Layout()});
+}
+
+void SpatialHash::Run(const gfx::CoreCtx& ctx, VkCommandBuffer cmd, VkDeviceAddress positions) {
+    auto pc = PushConstants{
+        .positions = positions,
+        .n_particles = n,
+    };
+
+    spatial_hash_pipeline.Compute(cmd, 0, {n / 256 + 1, 1, 1}, &pc);
+    ComputeToComputePipelineBarrier(cmd);
+    sort.Run(cmd, ctx, spatial_indices, spatial_keys, n - 1);
+    ComputeToComputePipelineBarrier(cmd);
+    offset.Run(cmd, ctx, true, spatial_keys, spatial_offsets);
+}
+
+void SpatialHash::Clear(const gfx::CoreCtx& ctx) {
+    desc_info.back().buffer.data_buffer.Destroy();
+
+    spatial_keys.Destroy();
+    spatial_indices.Destroy();
+    spatial_offsets.Destroy();
+    sort.Clear(ctx);
+    offset.Clear(ctx);
+    spatial_hash_pipeline.Clear(ctx);
+    spatial_hash_desc.Clear(ctx);
+}
+
+void SpatialHash::SetCellSize(float size) {
+    auto uniforms = UniformData{
+        .cell_size = size,
+        .spatial_keys = spatial_keys.device_addr,
+    };
+    spatial_hash_desc.SetUniformData(0, &uniforms);
+}
+
+}  // namespace vfs

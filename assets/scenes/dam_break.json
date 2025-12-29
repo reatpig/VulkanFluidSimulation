@@ -1,0 +1,30 @@
+{
+  "name": "Dam break",
+  "fluidModel": "wcsph",
+
+  "wcsphParameters": {
+    "stiffness": 1000.0,
+    "expoent": 7.0,
+    "viscosityStrenght": 0.01,
+    "outerWallStiffness": 10000.0
+  },
+
+  "simulationParameters": {
+    "gravity": [0.0, -9.81, 0.0],
+    "smoothRadius": 0.2,
+    "timeScale": 1.0,
+    "iterations": 3,
+    "dt": 0.008333,
+    "targetDensity": 1000.0,
+    "boundingBox": { "pos": [0, 0, 0], "size": [10, 10, 8] }
+  },
+
+  "fluidBlocks": [
+    {
+      "size": [30, 50, 50],
+      "pos": [0.0, 0.0, 1.5]
+    }
+  ],
+
+  "boundaryObjects": []
+}
