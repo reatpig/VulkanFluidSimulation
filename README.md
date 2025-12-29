@@ -1,6 +1,6 @@
 # Vulkan Fluid Simulation
 
-![Fluid Simulation](https://imgur.com/a/Iu6L8mi)
+![Fluid Simulation](https://i.imgur.com/jtWz2C6.png)
 *Визуализация 2D SPH симуляции, работающей на GPU.*
 
 ## Описание проекта
